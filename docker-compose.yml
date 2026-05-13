@@ -1,0 +1,130 @@
+version: '3.8'
+
+services:
+  # Frontend Service - Next.js UI
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend/Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - BACKEND_URL=http://backend:8000
+    volumes:
+      - ./app:/workspace/app
+      - ./public:/workspace/public
+      - ./next.config.ts:/workspace/next.config.ts
+      - ./package.json:/workspace/package.json
+      - ./tsconfig.json:/workspace/tsconfig.json
+    depends_on:
+      - backend
+    networks:
+      - dsa-network
+
+  # Backend API - FastAPI
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/dsaprac
+      - REDIS_URL=redis://redis:6379
+      - AI_API_KEY=${AI_API_KEY:-}
+      - SCRAPER_URL=http://scraper:8001
+      - EXECUTOR_URL=http://code-executor:8002
+    volumes:
+      - ./backend:/workspace/backend
+    depends_on:
+      - db
+      - redis
+      - scraper
+      - code-executor
+    networks:
+      - dsa-network
+
+  # Web Scraper Service
+  scraper:
+    build:
+      context: .
+      dockerfile: docker/scraper/Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      - REDIS_URL=redis://redis:6379
+    volumes:
+      - ./scraper:/workspace/scraper
+    depends_on:
+      - redis
+    networks:
+      - dsa-network
+
+  # Code Executor Service
+  code-executor:
+    build:
+      context: .
+      dockerfile: docker/code-executor/Dockerfile
+    ports:
+      - "8002:8002"
+    environment:
+      - REDIS_URL=redis://redis:6379
+    volumes:
+      - ./code-executor:/workspace/code-executor
+      - /var/run/docker.sock:/var/run/docker.sock
+    privileged: true
+    depends_on:
+      - redis
+    networks:
+      - dsa-network
+
+  # AI Agent Service
+  ai-agent:
+    build:
+      context: .
+      dockerfile: docker/ai-agent/Dockerfile
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - REDIS_URL=redis://redis:6379
+      - BACKEND_URL=http://backend:8000
+    volumes:
+      - ./ai-agent:/workspace/ai-agent
+    depends_on:
+      - redis
+      - backend
+    networks:
+      - dsa-network
+
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=dsaprac
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - dsa-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - dsa-network
+
+networks:
+  dsa-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
