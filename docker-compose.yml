@@ -99,7 +99,7 @@ services:
 
   # PostgreSQL Database
   db:
-    image: postgres:15-alpine
+    image: docker.io/library/postgres:15-alpine
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
@@ -110,16 +110,18 @@ services:
       - "5432:5432"
     networks:
       - dsa-network
+    pull_policy: always
 
   # Redis Cache
   redis:
-    image: redis:7-alpine
+    image: docker.io/library/redis:7-alpine
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
     networks:
       - dsa-network
+    pull_policy: always
 
 networks:
   dsa-network:
